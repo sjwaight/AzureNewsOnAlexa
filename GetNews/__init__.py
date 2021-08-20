@@ -35,6 +35,49 @@ class ReadTopFiveItems(AbstractRequestHandler):
                 .response
         )
 
+class LaunchRequestHandler(AbstractRequestHandler):
+    """Handler for Skill Launch."""
+    def can_handle(self, handler_input):
+        # type: (HandlerInput) -> bool
+
+        return ask_utils.is_request_type("LaunchRequest")(handler_input)
+
+    def handle(self, handler_input):
+        # type: (HandlerInput) -> Response
+        speak_output = "Hi There! I'm the Azure News Service and I can read you the latest Azure cloud news."
+
+        return (
+            handler_input.response_builder
+                .speak(speak_output)
+                .ask(speak_output)
+                .response
+        )
+
+class CatchAllExceptionHandler(AbstractExceptionHandler):
+
+    """Generic error handling to capture any syntax or routing errors. If you receive an error
+    stating the request handler chain is not found, you have not implemented a handler for
+    the intent being invoked or included it in the skill builder below.
+    """
+
+    def can_handle(self, handler_input, exception):
+        # type: (HandlerInput, Exception) -> bool
+        return True
+
+
+    def handle(self, handler_input, exception):
+
+        # type: (HandlerInput, Exception) -> Response
+        logging.error(exception, exc_info=True)
+        speak_output = "Sorry, I had trouble doing what you asked. Please try again."
+
+        return(
+            handler_input.response_builder
+                .speak(speak_output)
+                .ask(speak_output)
+                .response
+        )
+
 # RSS scraping function
 # Based mostly on: https://github.com/mattdood/web_scraping_example/blob/master/scraping.py
 def get_updates_rss(startDate, endDate):
@@ -95,9 +138,13 @@ def main(req: func.HttpRequest) -> func.HttpResponse:
     try:
 
         skill_builder = SkillBuilder()
+
+        skill_builder.add_request_handler(LaunchRequestHandler())
         skill_builder.request_handler(ReadTopFiveItems())
 
         webservice_handler = WebserviceSkillHandler(skill=skill_builder.create())
+
+        skill_builder.add_exception_handler(CatchAllExceptionHandler())
 
         response = webservice_handler.verify_request_and_dispatch(req.headers, req.get_body().decode("utf-8"))
 
