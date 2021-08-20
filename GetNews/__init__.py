@@ -99,7 +99,7 @@ def main(req: func.HttpRequest) -> func.HttpResponse:
 
         webservice_handler = WebserviceSkillHandler(skill=skill_builder.create())
 
-        response = webservice_handler.verify_request_and_dispatch(req.headers, req.get_body())
+        response = webservice_handler.verify_request_and_dispatch(req.headers, req.get_body().decode("utf-8"))
 
     except Exception:
         logging.exception("Error!")
