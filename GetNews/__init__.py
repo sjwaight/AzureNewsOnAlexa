@@ -1,8 +1,9 @@
 import logging
 import os
-import requests # pulling data
+import requests
+import json
 
-from datetime import datetime, timedelta, timezone
+from datetime import datetime, timedelta, timezone, tzinfo
 
 import azure.functions as func
 import ask_sdk_core.utils as ask_utils
@@ -14,19 +15,60 @@ from ask_sdk_core.dispatch_components import AbstractExceptionHandler
 
 from bs4 import BeautifulSoup # xml parsing
 
-# def handle_alexa_request():
+class ReadItemsFromDate(AbstractRequestHandler):
+    """Handler for AZURENEWS.TopFive Intent."""
+    def can_handle(self, handler_input):
+        return ask_utils.is_intent_name("ReadItemsFromADate")(handler_input)
+
+    def handle(self, handler_input):
+
+        # ending = datetime.now("%Y-%m-%d")
+        # starting = ending + timedelta(days=1)
+        speak_output = "There are no new Azure items currently available for today."
+
+        # updatelist = get_updates_rss(startDate=starting,endDate=ending)
+
+        # if len(updatelist) > 0:
+
+        #     # type: (HandlerInput) -> Response
+        #     speak_output = "Here are the top 5 Azure news items."
+
+        #     for item in updatelist[:5]:
+        #         speak_output += item["title"]
+
+        return (
+            handler_input.response_builder
+                .speak(speak_output)
+                .ask(speak_output)
+                .response
+        )
 
 class ReadTopFiveItems(AbstractRequestHandler):
-    """Handler for AZURENEWS.TopFive Intent."""
+    """Handler for ReadTopFive Intent."""
     def can_handle(self, handler_input):
         return ask_utils.is_intent_name("ReadTopFive")(handler_input)
 
     def handle(self, handler_input):
 
-        #updatelist = get_updates_rss(startDate=starting,endDate=ending)
+        ending =  datetime.now() 
+        starting = ending + timedelta(days=-7)
 
-        # type: (HandlerInput) -> Response
-        speak_output = "Reading the top 5 news items."
+        speak_output = "There are no new Azure items currently available for today."
+
+        updatelist = get_updates_rss(startDate=starting,endDate=ending)
+
+        if len(updatelist) > 0:
+
+            # type: (HandlerInput) -> Response
+            speak_output = "Here are the most recent 5 Azure news items."
+
+            item_count = 1
+
+            for item in updatelist[:5]:
+                speak_output += " Item " + str(item_count) + ': <break time="0.5s"/>' + item["title"] + '<break time="1s"/>'
+                item_count+=1
+
+            speak_output += " That's the most recent 5 announcements on Azure!"
 
         return (
             handler_input.response_builder
@@ -44,7 +86,7 @@ class LaunchRequestHandler(AbstractRequestHandler):
 
     def handle(self, handler_input):
         # type: (HandlerInput) -> Response
-        speak_output = "Hi There! I'm the Azure News Service and I can read you the latest Azure cloud news."
+        speak_output = "Hi There! I'm the Azure News Service and I can read you the latest Azure cloud news. Ask for the top five most recent items or ask to hear items from a specific date."
 
         return (
             handler_input.response_builder
@@ -133,22 +175,15 @@ def get_updates_rss(startDate, endDate):
 def main(req: func.HttpRequest) -> func.HttpResponse:
     # logging.info('Python HTTP trigger function processed a request.')
 
-    response = "{}"
+    skill_builder = SkillBuilder()
 
-    try:
+    skill_builder.add_request_handler(LaunchRequestHandler())
+    skill_builder.add_request_handler(ReadTopFiveItems())
+    skill_builder.add_request_handler(ReadItemsFromDate())
+    skill_builder.add_exception_handler(CatchAllExceptionHandler())
 
-        skill_builder = SkillBuilder()
+    webservice_handler = WebserviceSkillHandler(skill=skill_builder.create())
 
-        skill_builder.add_request_handler(LaunchRequestHandler())
-        skill_builder.request_handler(ReadTopFiveItems())
+    response = webservice_handler.verify_request_and_dispatch(req.headers, req.get_body().decode("utf-8"))
 
-        webservice_handler = WebserviceSkillHandler(skill=skill_builder.create())
-
-        skill_builder.add_exception_handler(CatchAllExceptionHandler())
-
-        response = webservice_handler.verify_request_and_dispatch(req.headers, req.get_body().decode("utf-8"))
-
-    except Exception:
-        logging.exception("Error!")
-
-    return func.HttpResponse(response)
+    return func.HttpResponse(json.dumps(response),mimetype="application/json")
