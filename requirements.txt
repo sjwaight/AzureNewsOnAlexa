@@ -3,9 +3,7 @@
 # Manually managing azure-functions-worker may cause unexpected issues
 
 azure-functions
-python-pptx
 beautifulsoup4
 requests
-aiohttp
 ask-sdk-core
 ask-sdk-webservice-support
